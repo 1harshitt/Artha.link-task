@@ -453,7 +453,7 @@ Before submitting, I performed the following verification steps:
   - `npm test`: 30/30 unit tests passing
   - `npm run demo`: 12/12 scenarios passing
   - `npm run load`: All events processed, 100% correctness
-  - Git SHA at time of testing: (working copy - no fabricated commit refs)
+  - Git SHA at time of testing: d4dae93f3f9313cf3fd233c1e214ab6c2f761ffb
 
 - [x] **Checked fixture requirements** — Official `fixtures/provider-plan.json` was not supplied with assignment. Created `fixtures/scenario.json` with synthetic test data covering all documented scenarios. Verified no hardcoded fixture IDs in business logic: `grep -r "event-10[0-9]\|job-10[0-9]" src/` returns no matches. All identifiers are dynamically generated in test scripts.
 

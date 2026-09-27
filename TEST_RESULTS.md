@@ -400,11 +400,10 @@ Comprehensive scenario validation:
 - **Throughput: 364-400 events/second** (HTTP acceptance rate)
 - Accepted (202): 0 (dev test, no response capture)
 - Duplicate detection (200): 0
-- Errors: 1350
 - Errors: 0/1150
-- **HTTP P50: 61ms**
-- **HTTP P95: 90ms**
-- **HTTP P99: 145ms**
+- **HTTP P50: 109-122ms**
+- **HTTP P95: 189-191ms**
+- **HTTP P99: 207-287ms**
 
 **Processing Performance:**
 - Workers: 2 concurrent

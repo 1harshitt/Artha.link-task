@@ -485,13 +485,13 @@ Environment:
   Node: v22.x
 
 HTTP Performance:
-  Submitted: 1,000
-  Accepted (202): 1,000
-  Duplicates (200): 200
-  Errors: 0
-  HTTP P50: ~15ms
-  HTTP P95: ~45ms
-  HTTP P99: ~120ms
+  Submitted: 1,150
+  Accepted (202): 0 (dev test, no response capture)
+  Duplicates (200): 0
+  Errors: 0/1,150
+  HTTP P50: 109-122ms
+  HTTP P95: 189-191ms
+  HTTP P99: 207-287ms
 
 Processing:
   Drain time: ~20,000ms (20 seconds)

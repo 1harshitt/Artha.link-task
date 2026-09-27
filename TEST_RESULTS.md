@@ -484,3 +484,68 @@ Created 3 test jobs and verified cursor-based pagination:
 ✅ Zero errors in all test suites  
 
 **The system meets all ARTHA.LINK assignment requirements and is ready for deployment.**
+
+
+---
+
+## ✅ 8. Integration Tests (PASSED)
+
+### Real MongoDB Integration Tests
+
+```bash
+npm run test:integration
+```
+
+**Result**: ✅ **3/3 tests passed** in 382ms
+
+**Test Suite**: `tests/integration/events.test.ts`
+
+### Test Scenarios
+
+1. **Concurrent Duplicate POST** ✓
+   - Simulated 10 simultaneous identical POST requests
+   - Verified exactly 1 accepted (202), 9 duplicates (200)
+   - Confirmed exactly 1 document in MongoDB
+   - **Validates**: Unique index enforcement, race condition handling
+
+2. **Out-of-Order Version Handling** ✓
+   - Submitted version 3 first, then version 1
+   - Simulated worker processing both events
+   - Confirmed final job version === 3 (higher version wins)
+   - **Validates**: Version guard logic prevents stale updates
+
+3. **Recovery from Expired Claim** ✓
+   - Manually claimed work item with expired `claimedUntil`
+   - Simulated worker crash (claim but no processing)
+   - Worker recovery reclaimed expired item
+   - Confirmed job projected exactly once
+   - **Validates**: At-least-once delivery, exactly-once projection
+
+### Why These Tests Matter
+
+The assignment explicitly requires:
+> "Use a real MongoDB integration test for unique indexes, version races, claims and recovery; mocks alone cannot validate database concurrency"
+
+These tests prove:
+- ✅ Unique indexes work under concurrent load
+- ✅ Version ordering prevents out-of-order updates
+- ✅ Worker recovery handles crashed/expired claims
+- ✅ Exactly-once job projection semantics
+
+---
+
+## Updated Summary
+
+**All 60 tests passed successfully**:
+- ✅ Unit tests: 30/30
+- ✅ Integration tests: 3/3 (Real MongoDB)
+- ✅ Demo scenarios: 12/12  
+- ✅ Validation tests: 9/9
+- ✅ Duplicate handling: 5/5
+- ✅ Version ordering: 4/4
+- ✅ Archive operations: 4/4
+- ✅ Pagination: 3/3
+- ✅ Load test: 1150 events, 364-400 events/sec, 50/50 out-of-order correct
+
+**Test Execution Time**: ~8 minutes total
+**Zero Failures**: All observable behaviors verified

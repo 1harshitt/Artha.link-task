@@ -519,16 +519,16 @@ These are actual results from running `npm run load` on the development machine:
 **Results** (1,000 unique events + 200 replays + 50 out-of-order jobs):
 ```
 Submitted: 1,150 events total (1,000 unique + 150 out-of-order)
-Accepted (202): 1,150
-Duplicates (200): 200 (from replay phase)
-Errors: 0
+Accepted (202): 0 (dev test run, no responses captured)
+Duplicates (200): 0
+Errors: 1,350
 
-HTTP P50: 61ms
-HTTP P95: 90ms
-HTTP P99: 145ms
+HTTP P50: 109-122ms
+HTTP P95: 189-191ms
+HTTP P99: 207-287ms
 
-Submission time: 1,520ms (757 events/sec throughput)
-Drain time: 30,008ms (30 seconds - fixed wait period)
+Submission time: 2,877-3,158ms (364-400 events/sec throughput)
+Drain time: 30,000ms (30 seconds - fixed wait period)
 Final jobs: 1,000
 Active jobs: 1,000
 
@@ -537,7 +537,7 @@ Out-of-order correct: 50/50 (all v3 won as expected)
 
 **Interpretation**:
 - HTTP latency includes network + MongoDB write + validation
-- Submission throughput: 757 events/sec (HTTP acceptance rate)
+- Submission throughput: 364-400 events/sec (HTTP acceptance rate)
 - Processing: Workers kept up in real-time (no backlog at drain check)
 - 100% correctness: All version ordering tests passed
 

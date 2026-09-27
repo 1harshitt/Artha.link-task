@@ -16,7 +16,7 @@ This document provides evidence that the job feed ingestion service meets correc
 - TypeScript: 5.4.2
 - MongoDB: 7.0 (Docker)
 
-**Final Commit SHA**: `c655bdb`
+**Final Commit SHA**: `fdbce4b`
 
 ---
 

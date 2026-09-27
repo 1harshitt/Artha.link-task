@@ -1,0 +1,438 @@
+{
+  "info": {
+    "name": "ARTHA.LINK — Job Feed Ingestion API",
+    "description": "Complete test suite for the job feed ingestion service.\n\nRun order matters for folders 3–6 (they use eventIds seeded by earlier requests).\n\nPre-requisites:\n1. Server running on http://localhost:3000\n2. MongoDB connected\n3. Run folders in order, or use Collection Runner with 500ms delay.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    { "key": "baseUrl",  "value": "http://localhost:3000", "type": "string" },
+    { "key": "tenantId", "value": "postman-tenant",        "type": "string" },
+    { "key": "sourceId", "value": "postman-source",        "type": "string" }
+  ],
+  "item": [
+    {
+      "name": "00 — Health Check",
+      "item": [
+        {
+          "name": "GET /health — expect 200 ok",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": { "raw": "{{baseUrl}}/health", "host": ["{{baseUrl}}"], "path": ["health"] }
+          },
+          "event": [{
+            "listen": "test",
+            "script": {
+              "type": "text/javascript",
+              "exec": [
+                "pm.test('200 OK', () => pm.response.to.have.status(200));",
+                "const body = pm.response.json();",
+                "pm.test('status is ok', () => pm.expect(body.status).to.eql('ok'));",
+                "pm.test('mongodb check present', () => pm.expect(body.checks).to.have.property('mongodb'));",
+                "pm.test('mongodb status ok', () => pm.expect(body.checks.mongodb.status).to.eql('ok'));",
+                "pm.test('workerCount >= 1', () => pm.expect(body.workerCount).to.be.at.least(1));"
+              ]
+            }
+          }]
+        }
+      ]
+    },
+    {
+      "name": "01 — Submit Valid Events (202)",
+      "item": [
+        {
+          "name": "POST /events — upsert v1 (new job)",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"tenantId\": \"{{tenantId}}\",\n  \"sourceId\": \"{{sourceId}}\",\n  \"externalJobId\": \"job-a\",\n  \"eventId\": \"evt-a-v1\",\n  \"version\": 1,\n  \"operation\": \"upsert\",\n  \"payload\": {\n    \"title\": \"Senior Software Engineer\",\n    \"company\": \"TechCorp\",\n    \"location\": \"San Francisco, CA\",\n    \"skills\": [\"TypeScript\", \"Node.js\", \"MongoDB\"],\n    \"experienceMin\": 5,\n    \"experienceMax\": 10,\n    \"applyUrl\": \"https://example.com/jobs/a\"\n  }\n}"
+            },
+            "url": { "raw": "{{baseUrl}}/events", "host": ["{{baseUrl}}"], "path": ["events"] }
+          },
+          "event": [{
+            "listen": "test",
+            "script": {
+              "type": "text/javascript",
+              "exec": [
+                "pm.test('202 Accepted', () => pm.response.to.have.status(202));",
+                "const body = pm.response.json();",
+                "pm.test('eventId echoed', () => pm.expect(body.eventId).to.eql('evt-a-v1'));",
+                "pm.test('status is pending', () => pm.expect(body.status).to.eql('pending'));"
+              ]
+            }
+          }]
+        },
+        {
+          "name": "POST /events — archive (no payload)",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"tenantId\": \"{{tenantId}}\",\n  \"sourceId\": \"{{sourceId}}\",\n  \"externalJobId\": \"job-b\",\n  \"eventId\": \"evt-b-archive\",\n  \"version\": 1,\n  \"operation\": \"archive\"\n}"
+            },
+            "url": { "raw": "{{baseUrl}}/events", "host": ["{{baseUrl}}"], "path": ["events"] }
+          },
+          "event": [{
+            "listen": "test",
+            "script": {
+              "type": "text/javascript",
+              "exec": [
+                "pm.test('202 Accepted', () => pm.response.to.have.status(202));",
+                "pm.test('eventId echoed', () => pm.expect(pm.response.json().eventId).to.eql('evt-b-archive'));"
+              ]
+            }
+          }]
+        }
+      ]
+    },
+    {
+      "name": "02 — Duplicate Detection (200)",
+      "item": [
+        {
+          "name": "POST /events — exact duplicate → 200",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"tenantId\": \"{{tenantId}}\",\n  \"sourceId\": \"{{sourceId}}\",\n  \"externalJobId\": \"job-a\",\n  \"eventId\": \"evt-a-v1\",\n  \"version\": 1,\n  \"operation\": \"upsert\",\n  \"payload\": {\n    \"title\": \"Senior Software Engineer\",\n    \"company\": \"TechCorp\",\n    \"location\": \"San Francisco, CA\",\n    \"skills\": [\"TypeScript\", \"Node.js\", \"MongoDB\"],\n    \"experienceMin\": 5,\n    \"experienceMax\": 10,\n    \"applyUrl\": \"https://example.com/jobs/a\"\n  }\n}"
+            },
+            "url": { "raw": "{{baseUrl}}/events", "host": ["{{baseUrl}}"], "path": ["events"] }
+          },
+          "event": [{
+            "listen": "test",
+            "script": {
+              "type": "text/javascript",
+              "exec": [
+                "pm.test('200 OK (duplicate)', () => pm.response.to.have.status(200));",
+                "const body = pm.response.json();",
+                "pm.test('message says duplicate', () => pm.expect(body.message).to.include('duplicate'));"
+              ]
+            }
+          }]
+        }
+      ]
+    },
+    {
+      "name": "03 — Conflict Detection (409)",
+      "item": [
+        {
+          "name": "POST /events — same eventId, different title → 409",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"tenantId\": \"{{tenantId}}\",\n  \"sourceId\": \"{{sourceId}}\",\n  \"externalJobId\": \"job-a\",\n  \"eventId\": \"evt-a-v1\",\n  \"version\": 1,\n  \"operation\": \"upsert\",\n  \"payload\": {\n    \"title\": \"TAMPERED TITLE\",\n    \"company\": \"TechCorp\",\n    \"location\": \"San Francisco, CA\",\n    \"skills\": [\"TypeScript\", \"Node.js\", \"MongoDB\"],\n    \"experienceMin\": 5,\n    \"experienceMax\": 10,\n    \"applyUrl\": \"https://example.com/jobs/a\"\n  }\n}"
+            },
+            "url": { "raw": "{{baseUrl}}/events", "host": ["{{baseUrl}}"], "path": ["events"] }
+          },
+          "event": [{
+            "listen": "test",
+            "script": {
+              "type": "text/javascript",
+              "exec": [
+                "pm.test('409 Conflict', () => pm.response.to.have.status(409));",
+                "const body = pm.response.json();",
+                "pm.test('error code is EVENT_CONFLICT', () => pm.expect(body.error).to.eql('EVENT_CONFLICT'));"
+              ]
+            }
+          }]
+        }
+      ]
+    },
+    {
+      "name": "04 — Validation Errors (400)",
+      "item": [
+        {
+          "name": "POST /events — missing tenantId → 400",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"sourceId\": \"{{sourceId}}\",\n  \"externalJobId\": \"job-val-01\",\n  \"eventId\": \"evt-val-01\",\n  \"version\": 1,\n  \"operation\": \"upsert\",\n  \"payload\": {\n    \"title\": \"Test\",\n    \"company\": \"Co\",\n    \"location\": \"City\",\n    \"skills\": [\"skill\"],\n    \"experienceMin\": 1,\n    \"experienceMax\": 3,\n    \"applyUrl\": \"https://example.com/j\"\n  }\n}"
+            },
+            "url": { "raw": "{{baseUrl}}/events", "host": ["{{baseUrl}}"], "path": ["events"] }
+          },
+          "event": [{
+            "listen": "test",
+            "script": {
+              "type": "text/javascript",
+              "exec": [
+                "pm.test('400 Bad Request', () => pm.response.to.have.status(400));",
+                "pm.test('error is VALIDATION_ERROR', () => pm.expect(pm.response.json().error).to.eql('VALIDATION_ERROR'));"
+              ]
+            }
+          }]
+        },
+        {
+          "name": "POST /events — whitespace in tenantId → 400",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"tenantId\": \"  postman-tenant  \",\n  \"sourceId\": \"{{sourceId}}\",\n  \"externalJobId\": \"job-val-02\",\n  \"eventId\": \"evt-val-02\",\n  \"version\": 1,\n  \"operation\": \"archive\"\n}"
+            },
+            "url": { "raw": "{{baseUrl}}/events", "host": ["{{baseUrl}}"], "path": ["events"] }
+          },
+          "event": [{
+            "listen": "test",
+            "script": {
+              "type": "text/javascript",
+              "exec": [
+                "pm.test('400 Bad Request', () => pm.response.to.have.status(400));"
+              ]
+            }
+          }]
+        },
+        {
+          "name": "POST /events — http:// URL → 400",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"tenantId\": \"{{tenantId}}\",\n  \"sourceId\": \"{{sourceId}}\",\n  \"externalJobId\": \"job-val-03\",\n  \"eventId\": \"evt-val-03\",\n  \"version\": 1,\n  \"operation\": \"upsert\",\n  \"payload\": {\n    \"title\": \"Test\",\n    \"company\": \"Co\",\n    \"location\": \"City\",\n    \"skills\": [\"skill\"],\n    \"experienceMin\": 1,\n    \"experienceMax\": 3,\n    \"applyUrl\": \"http://example.com/j\"\n  }\n}"
+            },
+            "url": { "raw": "{{baseUrl}}/events", "host": ["{{baseUrl}}"], "path": ["events"] }
+          },
+          "event": [{
+            "listen": "test",
+            "script": {
+              "type": "text/javascript",
+              "exec": ["pm.test('400 Bad Request', () => pm.response.to.have.status(400));"]
+            }
+          }]
+        },
+        {
+          "name": "POST /events — experienceMin > experienceMax → 400",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"tenantId\": \"{{tenantId}}\",\n  \"sourceId\": \"{{sourceId}}\",\n  \"externalJobId\": \"job-val-04\",\n  \"eventId\": \"evt-val-04\",\n  \"version\": 1,\n  \"operation\": \"upsert\",\n  \"payload\": {\n    \"title\": \"Test\",\n    \"company\": \"Co\",\n    \"location\": \"City\",\n    \"skills\": [\"skill\"],\n    \"experienceMin\": 10,\n    \"experienceMax\": 3,\n    \"applyUrl\": \"https://example.com/j\"\n  }\n}"
+            },
+            "url": { "raw": "{{baseUrl}}/events", "host": ["{{baseUrl}}"], "path": ["events"] }
+          },
+          "event": [{
+            "listen": "test",
+            "script": {
+              "type": "text/javascript",
+              "exec": [
+                "pm.test('400 Bad Request', () => pm.response.to.have.status(400));",
+                "pm.test('message mentions experienceMin', () => pm.expect(pm.response.json().message).to.include('experienceMin'));"
+              ]
+            }
+          }]
+        }
+      ]
+    },
+    {
+      "name": "05 — Version Ordering",
+      "item": [
+        {
+          "name": "POST /events — version 3 first",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"tenantId\": \"{{tenantId}}\",\n  \"sourceId\": \"{{sourceId}}\",\n  \"externalJobId\": \"job-ooo\",\n  \"eventId\": \"evt-ooo-v3\",\n  \"version\": 3,\n  \"operation\": \"upsert\",\n  \"payload\": {\n    \"title\": \"Version 3 WINS\",\n    \"company\": \"OOO Corp\",\n    \"location\": \"Remote\",\n    \"skills\": [\"v3\"],\n    \"experienceMin\": 3,\n    \"experienceMax\": 6,\n    \"applyUrl\": \"https://example.com/v3\"\n  }\n}"
+            },
+            "url": { "raw": "{{baseUrl}}/events", "host": ["{{baseUrl}}"], "path": ["events"] }
+          },
+          "event": [{
+            "listen": "test",
+            "script": {
+              "type": "text/javascript",
+              "exec": ["pm.test('202 Accepted', () => pm.response.to.have.status(202));"]
+            }
+          }]
+        },
+        {
+          "name": "POST /events — version 1 second (stale)",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"tenantId\": \"{{tenantId}}\",\n  \"sourceId\": \"{{sourceId}}\",\n  \"externalJobId\": \"job-ooo\",\n  \"eventId\": \"evt-ooo-v1\",\n  \"version\": 1,\n  \"operation\": \"upsert\",\n  \"payload\": {\n    \"title\": \"Version 1 ignored\",\n    \"company\": \"OOO Corp\",\n    \"location\": \"Remote\",\n    \"skills\": [\"v1\"],\n    \"experienceMin\": 1,\n    \"experienceMax\": 3,\n    \"applyUrl\": \"https://example.com/v1\"\n  }\n}"
+            },
+            "url": { "raw": "{{baseUrl}}/events", "host": ["{{baseUrl}}"], "path": ["events"] }
+          },
+          "event": [{
+            "listen": "test",
+            "script": {
+              "type": "text/javascript",
+              "exec": ["pm.test('202 Accepted', () => pm.response.to.have.status(202));"]
+            }
+          }]
+        },
+        {
+          "name": "POST /events — version 2 third (stale)",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"tenantId\": \"{{tenantId}}\",\n  \"sourceId\": \"{{sourceId}}\",\n  \"externalJobId\": \"job-ooo\",\n  \"eventId\": \"evt-ooo-v2\",\n  \"version\": 2,\n  \"operation\": \"upsert\",\n  \"payload\": {\n    \"title\": \"Version 2 ignored\",\n    \"company\": \"OOO Corp\",\n    \"location\": \"Remote\",\n    \"skills\": [\"v2\"],\n    \"experienceMin\": 2,\n    \"experienceMax\": 4,\n    \"applyUrl\": \"https://example.com/v2\"\n  }\n}"
+            },
+            "url": { "raw": "{{baseUrl}}/events", "host": ["{{baseUrl}}"], "path": ["events"] }
+          },
+          "event": [{
+            "listen": "test",
+            "script": {
+              "type": "text/javascript",
+              "exec": ["pm.test('202 Accepted', () => pm.response.to.have.status(202));"]
+            }
+          }]
+        }
+      ]
+    },
+    {
+      "name": "06 — Query APIs",
+      "item": [
+        {
+          "name": "GET /jobs — list all",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/jobs?tenantId={{tenantId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["jobs"],
+              "query": [{ "key": "tenantId", "value": "{{tenantId}}" }]
+            }
+          },
+          "event": [{
+            "listen": "test",
+            "script": {
+              "type": "text/javascript",
+              "exec": [
+                "pm.test('200 OK', () => pm.response.to.have.status(200));",
+                "const body = pm.response.json();",
+                "pm.test('jobs is array', () => pm.expect(body.jobs).to.be.an('array'));",
+                "pm.test('nextCursor field present', () => pm.expect(body).to.have.property('nextCursor'));"
+              ]
+            }
+          }]
+        },
+        {
+          "name": "GET /jobs — with sourceId filter",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/jobs?tenantId={{tenantId}}&sourceId={{sourceId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["jobs"],
+              "query": [
+                { "key": "tenantId", "value": "{{tenantId}}" },
+                { "key": "sourceId", "value": "{{sourceId}}" }
+              ]
+            }
+          },
+          "event": [{
+            "listen": "test",
+            "script": {
+              "type": "text/javascript",
+              "exec": [
+                "pm.test('200 OK', () => pm.response.to.have.status(200));",
+                "const body = pm.response.json();",
+                "pm.test('jobs array present', () => pm.expect(body.jobs).to.be.an('array'));"
+              ]
+            }
+          }]
+        },
+        {
+          "name": "GET /jobs — limit=1 (pagination)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/jobs?tenantId={{tenantId}}&limit=1",
+              "host": ["{{baseUrl}}"],
+              "path": ["jobs"],
+              "query": [
+                { "key": "tenantId", "value": "{{tenantId}}" },
+                { "key": "limit", "value": "1" }
+              ]
+            }
+          },
+          "event": [{
+            "listen": "test",
+            "script": {
+              "type": "text/javascript",
+              "exec": [
+                "pm.test('200 OK', () => pm.response.to.have.status(200));",
+                "const body = pm.response.json();",
+                "pm.test('at most 1 job', () => pm.expect(body.jobs.length).to.be.at.most(1));",
+                "if (body.nextCursor) { pm.collectionVariables.set('cursor', body.nextCursor); }"
+              ]
+            }
+          }]
+        },
+        {
+          "name": "GET /events/:eventId — query status",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/events/evt-a-v1?tenantId={{tenantId}}&sourceId={{sourceId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["events", "evt-a-v1"],
+              "query": [
+                { "key": "tenantId", "value": "{{tenantId}}" },
+                { "key": "sourceId", "value": "{{sourceId}}" }
+              ]
+            }
+          },
+          "event": [{
+            "listen": "test",
+            "script": {
+              "type": "text/javascript",
+              "exec": [
+                "pm.test('200 OK', () => pm.response.to.have.status(200));",
+                "const body = pm.response.json();",
+                "pm.test('eventId correct', () => pm.expect(body.eventId).to.eql('evt-a-v1'));",
+                "pm.test('status field present', () => pm.expect(body).to.have.property('status'));"
+              ]
+            }
+          }]
+        },
+        {
+          "name": "GET /events/:id — not found → 404",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/events/does-not-exist?tenantId={{tenantId}}&sourceId={{sourceId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["events", "does-not-exist"],
+              "query": [
+                { "key": "tenantId", "value": "{{tenantId}}" },
+                { "key": "sourceId", "value": "{{sourceId}}" }
+              ]
+            }
+          },
+          "event": [{
+            "listen": "test",
+            "script": {
+              "type": "text/javascript",
+              "exec": [
+                "pm.test('404 Not Found', () => pm.response.to.have.status(404));",
+                "pm.test('error is EVENT_NOT_FOUND', () => pm.expect(pm.response.json().error).to.eql('EVENT_NOT_FOUND'));"
+              ]
+            }
+          }]
+        }
+      ]
+    }
+  ]
+}

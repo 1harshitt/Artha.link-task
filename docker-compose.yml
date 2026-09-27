@@ -1,0 +1,54 @@
+version: '3.8'
+
+services:
+  mongodb:
+    image: mongo:7.0
+    container_name: artha-mongodb
+    restart: unless-stopped
+    ports:
+      - '27017:27017'
+    environment:
+      MONGO_INITDB_DATABASE: artha-job-feed
+    volumes:
+      - mongodb_data:/data/db
+      - mongodb_config:/data/configdb
+    healthcheck:
+      test: echo 'db.runCommand("ping").ok' | mongosh localhost:27017/artha-job-feed --quiet
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    networks:
+      - artha-network
+
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: artha-app
+    restart: unless-stopped
+    ports:
+      - '3000:3000'
+    environment:
+      NODE_ENV: production
+      PORT: 3000
+      HOST: 0.0.0.0
+      MONGODB_URI: mongodb://mongodb:27017/artha-job-feed
+      MONGODB_DATABASE: artha-job-feed
+    depends_on:
+      mongodb:
+        condition: service_healthy
+    networks:
+      - artha-network
+    volumes:
+      - ./fixtures:/app/fixtures:ro
+
+volumes:
+  mongodb_data:
+    driver: local
+  mongodb_config:
+    driver: local
+
+networks:
+  artha-network:
+    driver: bridge

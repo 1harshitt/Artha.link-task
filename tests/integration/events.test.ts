@@ -1,6 +1,5 @@
 import { describe, it, expect, beforeAll, afterEach, afterAll } from 'vitest';
 import { MongoClient, Db, Collection } from 'mongodb';
-import { EventPayload } from '../../src/domain/event.js';
 
 const MONGO_URI = 'mongodb://localhost:27017';
 const TEST_DB = 'artha-job-feed-test';
@@ -38,7 +37,7 @@ afterAll(async () => {
 
 describe('Integration Tests - Real MongoDB', () => {
   it('Concurrent duplicate POST: exactly one 202, nine 200s, one document in DB', async () => {
-    const payload: EventPayload = {
+    const payload = {
       jobId: 'job-concurrent-test',
       version: 1,
       timestamp: new Date().toISOString(),

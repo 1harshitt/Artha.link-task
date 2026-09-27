@@ -1,0 +1,249 @@
+{
+  "phase1": [
+    {
+      "name": "New job upsert v1",
+      "event": {
+        "tenantId": "tenant-demo",
+        "sourceId": "feed-demo",
+        "eventId": "event-101",
+        "externalJobId": "job-101",
+        "version": 1,
+        "operation": "upsert",
+        "payload": {
+          "title": "Senior Software Engineer",
+          "company": "Artha Inc",
+          "location": "Remote",
+          "experienceMin": 3,
+          "experienceMax": 7,
+          "skills": ["TypeScript", "MongoDB", "Node.js"],
+          "applyUrl": "https://artha.link/apply/job-101"
+        }
+      },
+      "expectedStatus": 202
+    },
+    {
+      "name": "Job retry on 429 (will succeed after retry)",
+      "event": {
+        "tenantId": "tenant-demo",
+        "sourceId": "feed-demo",
+        "eventId": "event-102",
+        "externalJobId": "job-102",
+        "version": 1,
+        "operation": "upsert",
+        "payload": {
+          "title": "DevOps Engineer",
+          "company": "Tech Corp",
+          "location": "San Francisco, CA",
+          "experienceMin": 2,
+          "experienceMax": 5,
+          "skills": ["AWS", "Docker", "Kubernetes"],
+          "applyUrl": "https://techcorp.com/apply/job-102"
+        }
+      },
+      "expectedStatus": 202
+    },
+    {
+      "name": "Job permanent failure (422)",
+      "event": {
+        "tenantId": "tenant-demo",
+        "sourceId": "feed-demo",
+        "eventId": "event-103",
+        "externalJobId": "job-103",
+        "version": 1,
+        "operation": "upsert",
+        "payload": {
+          "title": "Product Manager",
+          "company": "Startup Co",
+          "location": "New York, NY",
+          "experienceMin": 5,
+          "experienceMax": 10,
+          "skills": ["Product Strategy", "Agile", "Analytics"],
+          "applyUrl": "https://startup.co/apply/job-103"
+        }
+      },
+      "expectedStatus": 202
+    },
+    {
+      "name": "Job update v2 (higher version)",
+      "event": {
+        "tenantId": "tenant-demo",
+        "sourceId": "feed-demo",
+        "eventId": "event-104",
+        "externalJobId": "job-101",
+        "version": 2,
+        "operation": "upsert",
+        "payload": {
+          "title": "Senior Software Engineer (Updated)",
+          "company": "Artha Inc",
+          "location": "Remote or Hybrid",
+          "experienceMin": 3,
+          "experienceMax": 8,
+          "skills": ["TypeScript", "MongoDB", "Node.js", "React"],
+          "applyUrl": "https://artha.link/apply/job-101"
+        }
+      },
+      "expectedStatus": 202
+    },
+    {
+      "name": "Exact duplicate of event-101",
+      "event": {
+        "tenantId": "tenant-demo",
+        "sourceId": "feed-demo",
+        "eventId": "event-101",
+        "externalJobId": "job-101",
+        "version": 1,
+        "operation": "upsert",
+        "payload": {
+          "title": "Senior Software Engineer",
+          "company": "Artha Inc",
+          "location": "Remote",
+          "experienceMin": 3,
+          "experienceMax": 7,
+          "skills": ["TypeScript", "MongoDB", "Node.js"],
+          "applyUrl": "https://artha.link/apply/job-101"
+        }
+      },
+      "expectedStatus": 200
+    },
+    {
+      "name": "Conflict - same eventId, different content",
+      "event": {
+        "tenantId": "tenant-demo",
+        "sourceId": "feed-demo",
+        "eventId": "event-104",
+        "externalJobId": "job-101",
+        "version": 3,
+        "operation": "upsert",
+        "payload": {
+          "title": "DIFFERENT TITLE",
+          "company": "DIFFERENT COMPANY",
+          "location": "Remote",
+          "experienceMin": 3,
+          "experienceMax": 8,
+          "skills": ["TypeScript"],
+          "applyUrl": "https://artha.link/apply/job-101"
+        }
+      },
+      "expectedStatus": 409
+    },
+    {
+      "name": "Job with 503 retry",
+      "event": {
+        "tenantId": "tenant-demo",
+        "sourceId": "feed-demo",
+        "eventId": "event-105",
+        "externalJobId": "job-105",
+        "version": 1,
+        "operation": "upsert",
+        "payload": {
+          "title": "Data Scientist",
+          "company": "AI Labs",
+          "location": "Boston, MA",
+          "experienceMin": 4,
+          "experienceMax": 8,
+          "skills": ["Python", "TensorFlow", "Statistics"],
+          "applyUrl": "https://ailabs.com/apply/job-105"
+        }
+      },
+      "expectedStatus": 202
+    },
+    {
+      "name": "Archive job-101 v5",
+      "event": {
+        "tenantId": "tenant-demo",
+        "sourceId": "feed-demo",
+        "eventId": "event-106",
+        "externalJobId": "job-101",
+        "version": 5,
+        "operation": "archive"
+      },
+      "expectedStatus": 202
+    },
+    {
+      "name": "Out-of-order v3 (after v5 archive)",
+      "event": {
+        "tenantId": "tenant-demo",
+        "sourceId": "feed-demo",
+        "eventId": "event-107",
+        "externalJobId": "job-101",
+        "version": 3,
+        "operation": "upsert",
+        "payload": {
+          "title": "Stale Version",
+          "company": "Old Company",
+          "location": "Remote",
+          "experienceMin": 1,
+          "experienceMax": 3,
+          "skills": ["JavaScript"],
+          "applyUrl": "https://example.com/job"
+        }
+      },
+      "expectedStatus": 202
+    },
+    {
+      "name": "New job-201",
+      "event": {
+        "tenantId": "tenant-demo",
+        "sourceId": "feed-demo",
+        "eventId": "event-201",
+        "externalJobId": "job-201",
+        "version": 1,
+        "operation": "upsert",
+        "payload": {
+          "title": "Frontend Developer",
+          "company": "Web Co",
+          "location": "Remote",
+          "experienceMin": 2,
+          "experienceMax": 5,
+          "skills": ["React", "TypeScript", "CSS"],
+          "applyUrl": "https://webco.com/apply/job-201"
+        }
+      },
+      "expectedStatus": 202
+    }
+  ],
+  "phase2": [
+    {
+      "name": "Delayed event - v4 for job-101 (still stale, v5 archive wins)",
+      "event": {
+        "tenantId": "tenant-demo",
+        "sourceId": "feed-demo",
+        "eventId": "event-108",
+        "externalJobId": "job-101",
+        "version": 4,
+        "operation": "upsert",
+        "payload": {
+          "title": "Another Stale Version",
+          "company": "Another Old Company",
+          "location": "Remote",
+          "experienceMin": 2,
+          "experienceMax": 6,
+          "skills": ["Go"],
+          "applyUrl": "https://example.com/job2"
+        }
+      },
+      "expectedStatus": 202
+    },
+    {
+      "name": "Reactivate job-101 with v6 (higher than archive v5)",
+      "event": {
+        "tenantId": "tenant-demo",
+        "sourceId": "feed-demo",
+        "eventId": "event-109",
+        "externalJobId": "job-101",
+        "version": 6,
+        "operation": "upsert",
+        "payload": {
+          "title": "Staff Software Engineer",
+          "company": "Artha Inc (Reactivated)",
+          "location": "Remote Worldwide",
+          "experienceMin": 8,
+          "experienceMax": 15,
+          "skills": ["TypeScript", "System Design", "Leadership"],
+          "applyUrl": "https://artha.link/apply/job-101-v6"
+        }
+      },
+      "expectedStatus": 202
+    }
+  ]
+}

@@ -1,0 +1,14 @@
+{
+  "job-102": {
+    "status": 429,
+    "message": "Rate limit exceeded"
+  },
+  "job-103": {
+    "status": 422,
+    "message": "Job no longer accepting applications"
+  },
+  "job-105": {
+    "status": 503,
+    "message": "Service temporarily unavailable"
+  }
+}
